@@ -1,0 +1,49 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'rsperf'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=rsperf",
+                    "--package=rsperf"
+                ],
+                "filter": {
+                    "name": "rsperf",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "tcp",
+                "server",
+                "0.0.0.0:5000"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'rsperf'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=rsperf",
+                    "--package=rsperf",
+                ],
+                "filter": {
+                    "name": "rsperf",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}

@@ -1,0 +1,13 @@
+{
+  "transport": "tcp-client",
+  "client": {
+    "mode": "receive",
+    "test_plan": {
+      "duration": 3,
+      "packet_size": 131072
+    }
+  },
+  "tcp_client": {
+    "address": "127.0.0.1:7589"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "transport": "tcp-server",
+  "tcp_server": {
+    "address": "0.0.0.0:7589"
+  }
+}
