@@ -33,8 +33,6 @@ pub struct SynAck {
 pub enum Message {
     Syn(Syn),
     SynAck(SynAck),
-    Fin,
-    FinAck,
 }
 
 const MESSAGE_SIGNATURE: &[u8] = b"@PERF@";

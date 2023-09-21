@@ -58,3 +58,39 @@ pub fn handle_os_result<T: Ord + Num>(value: T) -> std::io::Result<T> {
         Ok(value)
     }
 }
+
+pub struct Fd(i32);
+
+impl Fd {
+    pub fn new(value: i32) -> Self {
+        Self(value)
+    }
+
+    pub fn value(&self) -> i32 {
+        self.0
+    }
+
+    pub fn set_timeout(&self, milliseconds: Option<u64>) -> std::io::Result<()> {
+        unsafe {
+            if let Some(seconds) = milliseconds {
+                let time = timeval { tv_sec: (seconds / 1000) as i64, tv_usec: ((seconds % 1000) * 1000) as i64 };
+                let len = std::mem::size_of_val(&time) as socklen_t;
+                let time = &time as *const timeval as *const c_void;
+                handle_os_result(setsockopt(self.value(), SOL_SOCKET, SO_RCVTIMEO, time, len))?;
+            } else {
+                let time = std::mem::zeroed::<timeval>();
+                let len = std::mem::size_of_val(&time) as socklen_t;
+                let time = &time as *const timeval as *const c_void;
+                handle_os_result(setsockopt(self.value(), SOL_SOCKET, SO_RCVTIMEO, time, len))?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl Drop for Fd {
+    fn drop(&mut self) {
+        unsafe { close(self.value()) };
+    }
+}

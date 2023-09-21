@@ -16,7 +16,7 @@ impl Format for Pretty {
                 let total_transfer = self.format_bytes(event.data.total_transfer());
                 if let Some(previous_data) = event.previous_data {
                     let throughput = self.format_bytes((event.data.total_transfer() - previous_data.total_transfer()) * 8);
-                    format!("[{:.2}s] {}B ({}b/s)", event.data.elapsed().as_secs_f64(), total_transfer, throughput)
+                    format!("[{:.2}s] {}B ({}bit/s)", event.data.elapsed().as_secs_f64(), total_transfer, throughput)
                 } else {
                     format!("[{:.2}s] {}B", event.data.elapsed().as_secs_f64(), total_transfer)
                 }

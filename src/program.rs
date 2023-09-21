@@ -1,4 +1,4 @@
-use std::net::SocketAddrV4;
+use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::{Arc, RwLock};
 use serde::Deserialize;
 use thiserror::Error;
@@ -14,6 +14,8 @@ pub struct Config {
     transport: String,
     tcp_server: Option<TcpServerConfig>,
     tcp_client: Option<TcpClientConfig>,
+    raw_server: Option<RawServerConfig>,
+    raw_client: Option<RawClientConfig>,
     client: Option<ClientConfig>,
 }
 
@@ -25,6 +27,17 @@ struct TcpServerConfig {
 #[derive(Deserialize)]
 struct TcpClientConfig {
     address: SocketAddrV4,
+}
+
+#[derive(Deserialize)]
+struct RawServerConfig {
+    interface: String,
+}
+
+#[derive(Deserialize)]
+struct RawClientConfig {
+    interface: String,
+    address: Ipv4Addr,
 }
 
 #[derive(Deserialize)]
@@ -65,6 +78,18 @@ pub fn run(config: Config, test_options: TestOptions) -> Result<()> {
                 Some(tcp_client_config) => Ok(start_client(TcpClient::new(tcp_client_config.address), client_config, test_options)?)
             }
         },
+        "raw-server" => match config.raw_server {
+            None => missing_field("raw_server"),
+            Some(raw_server_config) =>
+                Ok(start_server(RawServer::new(raw_server_config.interface), test_options)?)
+        },
+        "raw-client" => match config.client {
+            None => missing_field("client_config"),
+            Some(client_config) => match config.raw_client {
+                None => missing_field("raw_client"),
+                Some(raw_client_config) => Ok(start_client(RawClient::new(raw_client_config.interface, SocketAddrV4::new(raw_client_config.address, 0)), client_config, test_options)?)
+            }
+        }
         _ => Err(Error::InvalidConfig(format!("Invalid transport value \"{}\"", config.transport))),
     }
 }
@@ -135,74 +160,41 @@ fn start_client<C: Client<Conn>, Conn: Connection + 'static>(client: C, client_c
 }
 
 fn start_sender<Conn: Connection + 'static>(mut connection: Conn, mut test: Test) -> Result<()> {
-    let should_stop = Arc::new(RwLock::new(false));
-
-    let receive_thread = {
-        let mut message_reader = MessageReader::new(connection.clone());
-        let mut message_writer = MessageWriter::new(connection.clone());
-        let should_stop = Arc::clone(&should_stop);
-        std::thread::spawn(move || -> Result<()> {
-            // Wait for Fin
-            message_reader.read_until(|m| match m {
-                Message::Fin => Some(()),
-                _ => None,
-            })?;
-
-            // Mark as stop
-            *should_stop.write().unwrap() = true;
-
-            // Send FinAck
-            message_writer.write(Message::FinAck)?;
-            Ok(())
-        })
-    };
-
     let buffer = vec![0; test.data.plan.packet_size];
 
     test.start();
     loop {
-        let written = connection.write(&buffer)?;
+        let written = match connection.write(&buffer) {
+            Ok(written) => written,
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::ConnectionReset => break,
+                _ => return Err(Error::IO(e))
+            }
+        };
         test.transferred(written);
 
-        if *should_stop.read().unwrap() {
+        // Break if time is over
+        if test.elapsed().as_secs_f64() > test.data.plan.duration {
             break;
         }
     }
     test.finish();
-
-    receive_thread.join().expect("Failed to join receive thread")?;
 
     Ok(())
 }
 
 fn start_receiver<Conn: Connection>(mut connection: Conn, mut test: Test) -> Result<()> {
-    let mut reader = MessageReader::new(connection.clone());
-    let mut writer = MessageWriter::new(connection.clone());
-    let mut buffer = vec![0; Conn::header_size() + test.data.plan.packet_size];
+    let header_size = Conn::header_size();
+    let mut buffer = vec![0; header_size + test.data.plan.packet_size];
     test.start();
     loop {
         let read = connection.read(&mut buffer)?;
-        if read == 0 {
+        if read == header_size {
             break;
         }
         test.transferred(read);
-
-        // Send Fin if time is over
-        if test.elapsed().as_secs_f64() > test.data.plan.duration {
-            writer.write(Message::Fin)?;
-            break;
-        }
     }
     test.finish();
-
-    // Wait for FinAck (graceful disconnection)
-    reader.read_until_timeout(
-        |m| match m {
-            Message::FinAck => Some(()),
-            _ => None
-        },
-        1000,
-    )?;
 
     Ok(())
 }

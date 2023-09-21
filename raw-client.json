@@ -1,0 +1,14 @@
+{
+  "transport": "raw-client",
+  "client": {
+    "mode": "receive",
+    "test_plan": {
+      "duration": 3,
+      "packet_size": 1050
+    }
+  },
+  "raw_client": {
+    "interface": "lo",
+    "address": "127.0.0.1"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "transport": "raw-server",
+  "raw_server": {
+    "interface": "lo"
+  }
+}
