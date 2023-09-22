@@ -23,7 +23,6 @@ pub struct Event<'a> {
     timestamp: DateTime<Utc>,
 }
 
-
 impl<'a> Event<'a> {
     pub fn new(r#type: EventType, data: &'a TestData, previous_data: &'a Option<TestData>) -> Self {
         Self { r#type, timestamp: Utc::now(), data, previous_data }
@@ -67,3 +66,4 @@ impl<F: Format> FormattedTestPrinter<F> {
         self.last_data = Some(data.clone());
     }
 }
+

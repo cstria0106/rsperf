@@ -129,7 +129,7 @@ fn start_server<S: Server<L, Conn>, L: Listener<Conn>, Conn: Connection + 'stati
 
             Ok(())
         })() {
-            println!("Error: {}", e);
+            eprintln!("error: {}", e);
         }
     }
 }

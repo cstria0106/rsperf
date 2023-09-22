@@ -74,6 +74,6 @@ fn main() {
     start_handle_signals();
 
     if let Err(e) = start_cli() {
-        println!("{} {}", "error:".red().bold(), e);
+        eprintln!("error: {}", e);
     }
 }

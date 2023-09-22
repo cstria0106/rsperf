@@ -75,7 +75,6 @@ impl<R: Read + SetReadTimeout + Clone> MessageReader<R, R> {
             self.buffer.resize(size, 0);
             self.reader.read_exact(&mut self.buffer)?;
             if let Ok(message) = bincode::deserialize(&self.buffer) {
-                println!("{:?}", message);
                 break Ok(message);
             }
         }
