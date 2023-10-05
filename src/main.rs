@@ -1,18 +1,18 @@
 mod c;
 mod cli;
 mod message;
+mod program;
+mod test;
+mod test_format;
 mod transport;
 mod transports;
-mod test;
-mod program;
-mod test_format;
 
-use std::fs::File;
-use std::io::{Read, stdin};
-use colored::Colorize;
-use crate::test::{TestOptions};
 use crate::program::Config;
-use crate::test_format::{FormattedTestPrinter, Format, Json, Pretty};
+use crate::test::TestOptions;
+use crate::test_format::{Format, FormattedTestPrinter, Json, Pretty};
+use colored::Colorize;
+use std::fs::File;
+use std::io::{stdin, Read};
 
 type Result = std::result::Result<(), Box<dyn std::error::Error>>;
 
@@ -20,9 +20,8 @@ fn start_handle_signals() {
     ctrlc::set_handler(|| {
         std::process::exit(0);
     })
-        .unwrap();
+    .unwrap();
 }
-
 
 fn start<R: Read, F: Format + Clone + 'static>(reader: R, format: F) -> Result {
     let mut deserializer = serde_json::Deserializer::from_reader(reader).into_iter();
@@ -48,7 +47,6 @@ fn start_from_file<F: Format + Clone + 'static>(path: &str, format: F) -> Result
 fn start_from_stdin<F: Format + Clone + 'static>(format: F) -> Result {
     start(stdin(), format)
 }
-
 
 fn start_cli() -> Result {
     let command = cli::parse();

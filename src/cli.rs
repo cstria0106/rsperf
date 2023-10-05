@@ -1,5 +1,5 @@
-use std::fmt::{Display, Formatter};
 use clap::*;
+use std::fmt::{Display, Formatter};
 
 #[derive(Parser, ValueEnum, Clone, Debug)]
 pub enum FormatType {
@@ -11,7 +11,7 @@ impl Display for FormatType {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             FormatType::Json => f.write_str("json"),
-            FormatType::Pretty => f.write_str("pretty")
+            FormatType::Pretty => f.write_str("pretty"),
         }
     }
 }

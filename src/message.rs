@@ -1,5 +1,5 @@
-use std::io::{BufReader, Read, Write};
 use serde::{Deserialize, Serialize};
+use std::io::{BufReader, Read, Write};
 use thiserror::Error;
 
 use crate::test::TestPlan;
@@ -91,16 +91,20 @@ impl<R: Read + SetReadTimeout + Clone> MessageReader<R, R> {
         Ok(value)
     }
 
-    pub fn read_until_timeout<T>(&mut self, f: fn(message: Message) -> Option<T>, milliseconds: u64) -> Result<T> {
+    pub fn read_until_timeout<T>(
+        &mut self,
+        f: fn(message: Message) -> Option<T>,
+        milliseconds: u64,
+    ) -> Result<T> {
         self.timeout.set_read_timeout(Some(milliseconds))?;
         let value = loop {
             let message = self.read().map_err(|e| match e {
                 // Convert IO TimedOut error to ReadTimeout error
                 Error::IO(e) => match e.kind() {
                     std::io::ErrorKind::WouldBlock => Error::ReadTimeout,
-                    _ => Error::IO(e)
+                    _ => Error::IO(e),
                 },
-                _ => e
+                _ => e,
             })?;
 
             if let Some(value) = f(message) {
@@ -117,10 +121,12 @@ pub struct MessageWriter<W: Write> {
     buffer: Vec<u8>,
 }
 
-
 impl<W: Write> MessageWriter<W> {
     pub fn new(writer: W) -> Self {
-        Self { writer, buffer: Vec::new() }
+        Self {
+            writer,
+            buffer: Vec::new(),
+        }
     }
 
     pub fn write(&mut self, message: Message) -> Result<()> {
@@ -131,7 +137,8 @@ impl<W: Write> MessageWriter<W> {
 
         // Write size
         let message_size = bincode::serialized_size(&message)? as usize;
-        self.buffer.extend_from_slice(&(message_size as u32).to_be_bytes());
+        self.buffer
+            .extend_from_slice(&(message_size as u32).to_be_bytes());
 
         // Write message
         let len = self.buffer.len();

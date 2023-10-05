@@ -1,12 +1,12 @@
-use std::net::{Ipv4Addr, SocketAddrV4};
-use std::sync::{Arc, RwLock};
-use serde::Deserialize;
-use thiserror::Error;
 use crate::message::*;
-use crate::{message, transport};
 use crate::test::{Test, TestData, TestOptions, TestPlan};
 use crate::transport::*;
 use crate::transports::*;
+use crate::{message, transport};
+use serde::Deserialize;
+use std::net::{Ipv4Addr, SocketAddrV4};
+use std::sync::{Arc, RwLock};
+use thiserror::Error;
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -61,40 +61,64 @@ pub enum Error {
 type Result<T> = std::result::Result<T, Error>;
 
 fn missing_field(field: &'static str) -> Result<()> {
-    Err(Error::InvalidConfig(format!("The field \"{}\" is required", field)))
+    Err(Error::InvalidConfig(format!(
+        "The field \"{}\" is required",
+        field
+    )))
 }
 
 pub fn run(config: Config, test_options: TestOptions) -> Result<()> {
     match config.transport.as_str() {
         "tcp-server" => match config.tcp_server {
             None => missing_field("tcp_server"),
-            Some(tcp_server_config) =>
-                Ok(start_server(TcpServer::new(tcp_server_config.address), test_options)?)
+            Some(tcp_server_config) => Ok(start_server(
+                TcpServer::new(tcp_server_config.address),
+                test_options,
+            )?),
         },
         "tcp-client" => match config.client {
             None => missing_field("client_config"),
             Some(client_config) => match config.tcp_client {
                 None => missing_field("tcp_client"),
-                Some(tcp_client_config) => Ok(start_client(TcpClient::new(tcp_client_config.address), client_config, test_options)?)
-            }
+                Some(tcp_client_config) => Ok(start_client(
+                    TcpClient::new(tcp_client_config.address),
+                    client_config,
+                    test_options,
+                )?),
+            },
         },
         "raw-server" => match config.raw_server {
             None => missing_field("raw_server"),
-            Some(raw_server_config) =>
-                Ok(start_server(RawServer::new(raw_server_config.interface), test_options)?)
+            Some(raw_server_config) => Ok(start_server(
+                RawServer::new(raw_server_config.interface),
+                test_options,
+            )?),
         },
         "raw-client" => match config.client {
             None => missing_field("client_config"),
             Some(client_config) => match config.raw_client {
                 None => missing_field("raw_client"),
-                Some(raw_client_config) => Ok(start_client(RawClient::new(raw_client_config.interface, SocketAddrV4::new(raw_client_config.address, 0)), client_config, test_options)?)
-            }
-        }
-        _ => Err(Error::InvalidConfig(format!("Invalid transport value \"{}\"", config.transport))),
+                Some(raw_client_config) => Ok(start_client(
+                    RawClient::new(
+                        raw_client_config.interface,
+                        SocketAddrV4::new(raw_client_config.address, 0),
+                    ),
+                    client_config,
+                    test_options,
+                )?),
+            },
+        },
+        _ => Err(Error::InvalidConfig(format!(
+            "Invalid transport value \"{}\"",
+            config.transport
+        ))),
     }
 }
 
-fn start_server<S: Server<L, Conn>, L: Listener<Conn>, Conn: Connection + 'static>(server: S, test_options: TestOptions) -> Result<()> {
+fn start_server<S: Server<L, Conn>, L: Listener<Conn>, Conn: Connection + 'static>(
+    server: S,
+    test_options: TestOptions,
+) -> Result<()> {
     let mut test_id = 0;
     let listener = server.listen()?;
 
@@ -106,25 +130,29 @@ fn start_server<S: Server<L, Conn>, L: Listener<Conn>, Conn: Connection + 'stati
             let mut reader = MessageReader::new(connection.clone());
             let mut writer = MessageWriter::new(connection.clone());
 
-            let syn = reader.read_until(|m| {
-                match m {
-                    Message::Syn(syn) => Some(syn),
-                    _ => None,
-                }
+            let syn = reader.read_until(|m| match m {
+                Message::Syn(syn) => Some(syn),
+                _ => None,
             })?;
 
             test_id += 1;
 
             let final_options = syn.options.clone();
             // Send syn ack
-            let syn_ack = Message::SynAck(SynAck { test_id, test_plan: final_options.clone() });
+            let syn_ack = Message::SynAck(SynAck {
+                test_id,
+                test_plan: final_options.clone(),
+            });
             writer.write(syn_ack)?;
 
             // Start test
-            let test = Test::new(TestData::new(test_id, final_options.clone()), test_options.clone());
+            let test = Test::new(
+                TestData::new(test_id, final_options.clone()),
+                test_options.clone(),
+            );
             match syn.mode {
                 TransportMode::Send => start_receiver(connection, test),
-                TransportMode::Receive => start_sender(connection, test)
+                TransportMode::Receive => start_sender(connection, test),
             }?;
 
             Ok(())
@@ -134,7 +162,11 @@ fn start_server<S: Server<L, Conn>, L: Listener<Conn>, Conn: Connection + 'stati
     }
 }
 
-fn start_client<C: Client<Conn>, Conn: Connection + 'static>(client: C, client_config: ClientConfig, test_options: TestOptions) -> Result<()> {
+fn start_client<C: Client<Conn>, Conn: Connection + 'static>(
+    client: C,
+    client_config: ClientConfig,
+    test_options: TestOptions,
+) -> Result<()> {
     let connection = client.connect()?;
     let mut reader = MessageReader::new(connection.clone());
     let mut writer = MessageWriter::new(connection.clone());
@@ -148,14 +180,17 @@ fn start_client<C: Client<Conn>, Conn: Connection + 'static>(client: C, client_c
     // Wait for SynAck
     let syn_ack = reader.read_until(|m| match m {
         Message::SynAck(syn_ack) => Some(syn_ack),
-        _ => None
+        _ => None,
     })?;
 
-    let test = Test::new(TestData::new(syn_ack.test_id, syn_ack.test_plan), test_options);
+    let test = Test::new(
+        TestData::new(syn_ack.test_id, syn_ack.test_plan),
+        test_options,
+    );
 
     match client_config.mode {
         TransportMode::Send => start_sender(connection, test),
-        TransportMode::Receive => start_receiver(connection, test)
+        TransportMode::Receive => start_receiver(connection, test),
     }
 }
 
@@ -168,8 +203,8 @@ fn start_sender<Conn: Connection + 'static>(mut connection: Conn, mut test: Test
             Ok(written) => written,
             Err(e) => match e.kind() {
                 std::io::ErrorKind::ConnectionReset => break,
-                _ => return Err(Error::IO(e))
-            }
+                _ => return Err(Error::IO(e)),
+            },
         };
         test.transferred(written);
 

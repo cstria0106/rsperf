@@ -1,5 +1,5 @@
-use std::io::{Read, Write};
 use serde::{Deserialize, Serialize};
+use std::io::{Read, Write};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -29,7 +29,6 @@ pub trait Listener<Conn: Connection> {
 pub trait Client<Conn: Connection> {
     fn connect(&self) -> Result<Conn>;
 }
-
 
 pub trait SetReadTimeout {
     fn set_read_timeout(&mut self, milliseconds: Option<u64>) -> std::io::Result<()>;

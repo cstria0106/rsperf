@@ -1,12 +1,12 @@
-mod pretty;
 mod json;
+mod pretty;
 
-pub use pretty::*;
 pub use json::*;
+pub use pretty::*;
 
-use chrono::{DateTime, Utc};
-use serde::{Serialize};
 use crate::test::{TestData, TestListener};
+use chrono::{DateTime, Utc};
+use serde::Serialize;
 
 #[derive(Serialize)]
 pub enum EventType {
@@ -19,13 +19,21 @@ pub enum EventType {
 pub struct Event<'a> {
     r#type: EventType,
     data: &'a TestData,
+
+    #[serde(skip_serializing)]
     previous_data: &'a Option<TestData>,
+    #[serde(skip_serializing)]
     timestamp: DateTime<Utc>,
 }
 
 impl<'a> Event<'a> {
     pub fn new(r#type: EventType, data: &'a TestData, previous_data: &'a Option<TestData>) -> Self {
-        Self { r#type, timestamp: Utc::now(), data, previous_data }
+        Self {
+            r#type,
+            timestamp: Utc::now(),
+            data,
+            previous_data,
+        }
     }
 }
 
@@ -41,7 +49,10 @@ pub struct FormattedTestPrinter<F: Format> {
 
 impl<F: Format> FormattedTestPrinter<F> {
     pub fn new(format: F) -> Self {
-        Self { format, last_data: None }
+        Self {
+            format,
+            last_data: None,
+        }
     }
 }
 
@@ -61,9 +72,10 @@ impl<F: Format> TestListener for FormattedTestPrinter<F> {
 
 impl<F: Format> FormattedTestPrinter<F> {
     fn format_and_print(&mut self, r#type: EventType, data: &TestData) {
-        let formatted = self.format.format(&Event::new(r#type, &data, &self.last_data));
+        let formatted = self
+            .format
+            .format(&Event::new(r#type, &data, &self.last_data));
         println!("{}", formatted);
         self.last_data = Some(data.clone());
     }
 }
-

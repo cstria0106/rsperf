@@ -1,6 +1,6 @@
-use std::io::{Read, Write};
 use crate::transport::{Client, Connection, Listener, Server, SetReadTimeout};
 use libc::*;
+use std::io::{Read, Write};
 
 struct ZeroCopyConnection {}
 

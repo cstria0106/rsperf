@@ -1,9 +1,8 @@
-use std::cell::RefCell;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
-
 
 /// Shared between client and server
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -28,26 +27,27 @@ impl Default for TestOptions {
 }
 
 impl TestOptions {
-    pub fn new<EventHandler: TestListener + 'static>(report_interval: f64, event_handler: EventHandler) -> Self {
-        Self { report_interval, event_handler: Rc::new(RefCell::new(Box::new(event_handler))) }
+    pub fn new<EventHandler: TestListener + 'static>(
+        report_interval: f64,
+        event_handler: EventHandler,
+    ) -> Self {
+        Self {
+            report_interval,
+            event_handler: Rc::new(RefCell::new(Box::new(event_handler))),
+        }
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TestData {
     pub id: usize,
-
-    total_transfer: usize,
-    start_time: DateTime<Utc>,
-    report_count: usize,
-
+    pub total_transfer: usize,
     pub plan: TestPlan,
-}
 
-impl TestData {
-    pub fn total_transfer(&self) -> usize {
-        self.total_transfer
-    }
+    #[serde(skip_serializing)]
+    start_time: DateTime<Utc>,
+    #[serde(skip_serializing)]
+    report_count: usize,
 }
 
 impl TestData {
@@ -80,10 +80,7 @@ pub trait TestListener {
 
 impl Test {
     pub fn new(data: TestData, options: TestOptions) -> Self {
-        Self {
-            data,
-            options,
-        }
+        Self { data, options }
     }
 
     pub fn elapsed(&self) -> Duration {
@@ -94,7 +91,10 @@ impl Test {
         self.data.total_transfer += n;
 
         if self.should_report() {
-            self.options.event_handler.borrow_mut().on_report(&mut self.data);
+            self.options
+                .event_handler
+                .borrow_mut()
+                .on_report(&mut self.data);
         }
     }
 
@@ -104,7 +104,10 @@ impl Test {
     }
 
     pub fn finish(&mut self) {
-        self.options.event_handler.borrow_mut().on_finish(&self.data);
+        self.options
+            .event_handler
+            .borrow_mut()
+            .on_finish(&self.data);
     }
 
     pub fn should_report(&mut self) -> bool {

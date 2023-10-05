@@ -13,12 +13,23 @@ impl Format for Pretty {
                 format!("Test finished #{}", event.data.id)
             }
             EventType::Report => {
-                let total_transfer = self.format_bytes(event.data.total_transfer());
+                let total_transfer = self.format_bytes(event.data.total_transfer);
                 if let Some(previous_data) = event.previous_data {
-                    let throughput = self.format_bytes((event.data.total_transfer() - previous_data.total_transfer()) * 8);
-                    format!("[{:.2}s] {}B ({}bit/s)", event.data.elapsed().as_secs_f64(), total_transfer, throughput)
+                    let throughput = self.format_bytes(
+                        (event.data.total_transfer - previous_data.total_transfer) * 8,
+                    );
+                    format!(
+                        "[{:.2}s] {}B ({}bit/s)",
+                        event.data.elapsed().as_secs_f64(),
+                        total_transfer,
+                        throughput
+                    )
                 } else {
-                    format!("[{:.2}s] {}B", event.data.elapsed().as_secs_f64(), total_transfer)
+                    format!(
+                        "[{:.2}s] {}B",
+                        event.data.elapsed().as_secs_f64(),
+                        total_transfer
+                    )
                 }
             }
         }
