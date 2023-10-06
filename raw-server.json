@@ -1,6 +1,6 @@
 {
   "transport": "raw-server",
   "raw_server": {
-    "interface": "lo"
+    "interface": "enp2s0"
   }
 }
