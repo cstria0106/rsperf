@@ -203,7 +203,18 @@ fn start_sender<Conn: Connection + 'static>(mut connection: Conn, mut test: Test
             Ok(written) => written,
             Err(e) => match e.kind() {
                 std::io::ErrorKind::ConnectionReset => break,
-                _ => return Err(Error::IO(e)),
+                _ => {
+                    if let Some(raw_error) = e.raw_os_error() {
+                        // No buffer space available
+                        if raw_error == 105 {
+                            continue;
+                        } else {
+                            return Err(Error::IO(e));
+                        }
+                    } else {
+                        return Err(Error::IO(e));
+                    }
+                }
             },
         };
         test.transferred(written);

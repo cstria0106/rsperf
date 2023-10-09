@@ -1,10 +1,10 @@
+use crate::c::*;
+use crate::transport::{Client, Connection, Listener, Server, SetReadTimeout};
+use etherparse::{Ipv4Header, SerializedSize};
+use libc::*;
 use std::io::{Read, Write};
 use std::net::SocketAddrV4;
 use std::sync::Arc;
-use etherparse::{Ipv4Header, SerializedSize};
-use libc::*;
-use crate::c::*;
-use crate::transport::{Client, Connection, Listener, Server, SetReadTimeout};
 
 type Result<T> = crate::transport::Result<T>;
 
@@ -18,9 +18,7 @@ pub struct RawSocket {
 
 impl RawSocket {
     fn new(fd: Fd) -> Self {
-        Self {
-            fd: Arc::new(fd)
-        }
+        Self { fd: Arc::new(fd) }
     }
 
     fn recvfrom(&self, buf: &mut [u8]) -> std::io::Result<(usize, SocketAddrV4)> {
@@ -28,10 +26,14 @@ impl RawSocket {
             unsafe {
                 let mut addr: sockaddr_in = std::mem::zeroed();
                 let mut addrlen: socklen_t = std::mem::size_of_val(&addr) as socklen_t;
-                let read = handle_os_result(
-                    recvfrom(self.fd.value(), buf.as_mut_ptr() as *mut c_void, buf.len(), MSG_NOSIGNAL,
-                             &mut addr as *mut sockaddr_in as *mut sockaddr, &mut addrlen as *mut socklen_t)
-                )?;
+                let read = handle_os_result(recvfrom(
+                    self.fd.value(),
+                    buf.as_mut_ptr() as *mut c_void,
+                    buf.len(),
+                    MSG_NOSIGNAL,
+                    &mut addr as *mut sockaddr_in as *mut sockaddr,
+                    &mut addrlen as *mut socklen_t,
+                ))?;
 
                 break Ok((read as usize, SocketAddrV4::from_c(&addr)));
             }
@@ -41,10 +43,14 @@ impl RawSocket {
     fn sendto(&self, buf: &[u8], destination: &SocketAddrV4) -> std::io::Result<usize> {
         unsafe {
             let (destination, len) = destination.into_c();
-            Ok(handle_os_result(
-                sendto(self.fd.value(), buf.as_ptr() as *const c_void, buf.len(), MSG_NOSIGNAL,
-                       destination.as_ptr(), len)
-            )? as usize)
+            Ok(handle_os_result(sendto(
+                self.fd.value(),
+                buf.as_ptr() as *const c_void,
+                buf.len(),
+                MSG_NOSIGNAL,
+                destination.as_ptr(),
+                len,
+            ))? as usize)
         }
     }
 
@@ -61,7 +67,10 @@ pub struct RawConnection {
 
 impl RawConnection {
     pub fn new(socket: RawSocket, destination: SocketAddrV4) -> Self {
-        Self { socket, destination }
+        Self {
+            socket,
+            destination,
+        }
     }
 }
 
@@ -119,7 +128,7 @@ impl Listener<RawConnection> for RawListener {
 
             let (_, payload) = match Ipv4Header::from_slice(&buffer[..read]) {
                 Ok(result) => result,
-                Err(_) => continue
+                Err(_) => continue,
             };
 
             if payload.len() == 0 {
@@ -143,7 +152,14 @@ impl Server<RawListener, RawConnection> for RawServer {
     fn listen(&self) -> crate::transport::Result<RawListener> {
         unsafe {
             let fd = Fd::new(handle_os_result(socket(AF_INET, SOCK_RAW, PROTOCOL))?);
-            handle_os_result(setsockopt(fd.value(), SOL_SOCKET, SO_BINDTODEVICE, self.interface.as_ptr() as *const c_void, self.interface.len() as socklen_t))?;
+            // Bind to device
+            handle_os_result(setsockopt(
+                fd.value(),
+                SOL_SOCKET,
+                SO_BINDTODEVICE,
+                self.interface.as_ptr() as *const c_void,
+                self.interface.len() as socklen_t,
+            ))?;
             Ok(RawListener::new(RawSocket::new(fd)))
         }
     }
@@ -156,7 +172,10 @@ pub struct RawClient {
 
 impl RawClient {
     pub fn new(interface: String, destination: SocketAddrV4) -> Self {
-        Self { interface, destination }
+        Self {
+            interface,
+            destination,
+        }
     }
 }
 
@@ -164,7 +183,13 @@ impl Client<RawConnection> for RawClient {
     fn connect(&self) -> crate::transport::Result<RawConnection> {
         unsafe {
             let fd = Fd::new(handle_os_result(socket(AF_INET, SOCK_RAW, PROTOCOL))?);
-            handle_os_result(setsockopt(fd.value(), SOL_SOCKET, SO_BINDTODEVICE, self.interface.as_ptr() as *const c_void, self.interface.len() as socklen_t))?;
+            handle_os_result(setsockopt(
+                fd.value(),
+                SOL_SOCKET,
+                SO_BINDTODEVICE,
+                self.interface.as_ptr() as *const c_void,
+                self.interface.len() as socklen_t,
+            ))?;
             let socket = RawSocket::new(fd);
             socket.sendto(&[], &self.destination)?;
             Ok(RawConnection::new(socket, self.destination.clone()))

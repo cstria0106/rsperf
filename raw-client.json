@@ -4,11 +4,11 @@
     "mode": "receive",
     "test_plan": {
       "duration": 3,
-      "packet_size": 1050
+      "packet_size": 65515
     }
   },
   "raw_client": {
-    "interface": "lo",
-    "address": "127.0.0.1"
+    "interface": "enp2s0",
+    "address": "192.168.0.9"
   }
 }

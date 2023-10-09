@@ -26,7 +26,7 @@ impl IntoC<(Sockaddr, socklen_t)> for &SocketAddrV4 {
                     sin_family: AF_INET as sa_family_t,
                     sin_port: self.port().to_be(),
                     sin_addr: in_addr {
-                        s_addr: u32::from_ne_bytes(self.ip().octets()).to_le(),
+                        s_addr: u32::from_be_bytes(self.ip().octets()).to_le(),
                     },
                     sin_zero: unsafe { std::mem::zeroed() },
                 },
