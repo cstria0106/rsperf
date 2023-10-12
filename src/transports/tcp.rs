@@ -1,9 +1,9 @@
+use crate::c::*;
+use crate::transport::{Client, Connection, Listener, Server, SetReadTimeout};
+use libc::*;
 use std::io::{Read, Write};
 use std::net::SocketAddrV4;
 use std::sync::Arc;
-use libc::*;
-use crate::c::*;
-use crate::transport::{Server, Client, Listener, Connection, SetReadTimeout};
 
 type Result<T> = crate::transport::Result<T>;
 
@@ -18,11 +18,15 @@ impl TcpConnection {
     }
 }
 
-
 impl Read for TcpConnection {
     fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
         unsafe {
-            Ok(handle_os_result(recv(self.fd.value(), buffer.as_mut_ptr() as *mut c_void, buffer.len(), MSG_NOSIGNAL))? as usize)
+            Ok(handle_os_result(recv(
+                self.fd.value(),
+                buffer.as_mut_ptr() as *mut c_void,
+                buffer.len(),
+                MSG_NOSIGNAL,
+            ))? as usize)
         }
     }
 }
@@ -30,7 +34,12 @@ impl Read for TcpConnection {
 impl Write for TcpConnection {
     fn write(&mut self, buffer: &[u8]) -> std::io::Result<usize> {
         unsafe {
-            Ok(handle_os_result(send(self.fd.value(), buffer.as_ptr() as *const c_void, buffer.len(), MSG_NOSIGNAL))? as usize)
+            Ok(handle_os_result(send(
+                self.fd.value(),
+                buffer.as_ptr() as *const c_void,
+                buffer.len(),
+                MSG_NOSIGNAL,
+            ))? as usize)
         }
     }
 
@@ -92,7 +101,11 @@ impl Listener<TcpConnection> for TcpListener {
         unsafe {
             let mut address = std::mem::zeroed::<sockaddr_in>();
             let mut address_length: socklen_t = 0;
-            let fd = Fd::new(handle_os_result(accept(self.fd.value(), &mut address as *mut sockaddr_in as *mut sockaddr, &mut address_length as *mut socklen_t))?);
+            let fd = Fd::new(handle_os_result(accept(
+                self.fd.value(),
+                &mut address as *mut sockaddr_in as *mut sockaddr,
+                &mut address_length as *mut socklen_t,
+            ))?);
             Ok(TcpConnection::new(fd))
         }
     }
@@ -115,15 +128,13 @@ impl Server<TcpListener, TcpConnection> for TcpServer {
             let fd = Fd::new(handle_os_result(socket(AF_INET, SOCK_STREAM, 0))?);
 
             // 2. Set options
-            handle_os_result(
-                setsockopt(
-                    fd.value(),
-                    SOL_SOCKET,
-                    SO_REUSEADDR,
-                    &1 as *const i32 as *const c_void,
-                    std::mem::size_of::<i32>() as u32,
-                )
-            )?;
+            handle_os_result(setsockopt(
+                fd.value(),
+                SOL_SOCKET,
+                SO_REUSEADDR,
+                &1 as *const i32 as *const c_void,
+                std::mem::size_of::<i32>() as u32,
+            ))?;
 
             // 3. Bind
             let (address, address_length) = self.address.into_c();

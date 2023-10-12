@@ -195,8 +195,8 @@ fn start_client<C: Client<Conn>, Conn: Connection + 'static>(
 }
 
 fn start_sender<Conn: Connection + 'static>(mut connection: Conn, mut test: Test) -> Result<()> {
+    println!("Sender started");
     let buffer = vec![0; test.data.plan.packet_size];
-
     test.start();
     loop {
         let written = match connection.write(&buffer) {
@@ -230,6 +230,7 @@ fn start_sender<Conn: Connection + 'static>(mut connection: Conn, mut test: Test
 }
 
 fn start_receiver<Conn: Connection>(mut connection: Conn, mut test: Test) -> Result<()> {
+    println!("Receiver started");
     let header_size = Conn::header_size();
     let mut buffer = vec![0; header_size + test.data.plan.packet_size];
     test.start();
