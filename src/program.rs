@@ -4,6 +4,7 @@ use crate::transport::*;
 use crate::transports::*;
 use crate::{message, transport};
 use serde::Deserialize;
+use std::io::stdin;
 use std::net::{Ipv4Addr, SocketAddrV4};
 use std::sync::{Arc, RwLock};
 use thiserror::Error;
@@ -125,6 +126,7 @@ fn start_server<S: Server<L, Conn>, L: Listener<Conn>, Conn: Connection + 'stati
     loop {
         let connection = listener.accept()?;
         let test_options = test_options.clone();
+        let test_id = &mut test_id;
 
         if let Err(e) = (move || -> Result<()> {
             let mut reader = MessageReader::new(connection.clone());
@@ -135,7 +137,8 @@ fn start_server<S: Server<L, Conn>, L: Listener<Conn>, Conn: Connection + 'stati
                 _ => None,
             })?;
 
-            test_id += 1;
+            *test_id += 1;
+            let test_id = *test_id;
 
             let final_options = syn.options.clone();
             // Send syn ack
@@ -195,7 +198,6 @@ fn start_client<C: Client<Conn>, Conn: Connection + 'static>(
 }
 
 fn start_sender<Conn: Connection + 'static>(mut connection: Conn, mut test: Test) -> Result<()> {
-    println!("Sender started");
     let buffer = vec![0; test.data.plan.packet_size];
     test.start();
     loop {
@@ -230,7 +232,6 @@ fn start_sender<Conn: Connection + 'static>(mut connection: Conn, mut test: Test
 }
 
 fn start_receiver<Conn: Connection>(mut connection: Conn, mut test: Test) -> Result<()> {
-    println!("Receiver started");
     let header_size = Conn::header_size();
     let mut buffer = vec![0; header_size + test.data.plan.packet_size];
     test.start();

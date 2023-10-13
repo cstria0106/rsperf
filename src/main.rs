@@ -41,6 +41,10 @@ fn start<R: Read, F: Format + Clone + 'static>(reader: R, format: F) -> Result {
 }
 
 fn start_from_file<F: Format + Clone + 'static>(path: &str, format: F) -> Result {
+    println!("Press enter to start");
+    let mut buf = [];
+    _ = stdin().read(&mut buf);
+    println!("Started");
     start(File::open(path)?, format)
 }
 

@@ -42,7 +42,7 @@ pub trait FromC<T> {
 
 impl FromC<sockaddr_in> for SocketAddrV4 {
     fn from_c(address: &sockaddr_in) -> Self {
-        let ip_bytes = u32::from_be(address.sin_addr.s_addr).to_ne_bytes();
+        let ip_bytes = u32::from_be(address.sin_addr.s_addr).to_be_bytes();
         let ip = Ipv4Addr::new(ip_bytes[0], ip_bytes[1], ip_bytes[2], ip_bytes[3]);
         let port = u16::from_be(address.sin_port);
         Self::new(ip, port)
