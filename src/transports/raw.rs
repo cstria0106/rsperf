@@ -1,72 +1,35 @@
 use crate::c::*;
-use crate::transport::{Client, Connection, Listener, Server, SetReadTimeout};
+use crate::transport::{Client, Connection, Server, SetReadTimeout};
+use crate::transports::sockets::{DgramListener, DgramSocket};
 use etherparse::{Ipv4Header, SerializedSize};
 use libc::*;
 use std::io::{Read, Write};
 use std::net::SocketAddrV4;
-use std::sync::Arc;
+
+use super::sockets::ConnectionFactory;
 
 type Result<T> = crate::transport::Result<T>;
 
 const PROTOCOL: i32 = 200;
 
-/// Socket struct that implements recvfrom sendto
-#[derive(Clone)]
-pub struct RawSocket {
-    fd: Arc<Fd>,
+pub struct RawServer {
+    interface: String,
 }
 
-impl RawSocket {
-    fn new(fd: Fd) -> Self {
-        Self { fd: Arc::new(fd) }
-    }
-
-    fn recvfrom(&self, buf: &mut [u8]) -> std::io::Result<(usize, SocketAddrV4)> {
-        loop {
-            unsafe {
-                let mut addr: sockaddr_in = std::mem::zeroed();
-                let mut addrlen: socklen_t = std::mem::size_of_val(&addr) as socklen_t;
-                let read = handle_os_result(recvfrom(
-                    self.fd.value(),
-                    buf.as_mut_ptr() as *mut c_void,
-                    buf.len(),
-                    MSG_NOSIGNAL,
-                    &mut addr as *mut sockaddr_in as *mut sockaddr,
-                    &mut addrlen as *mut socklen_t,
-                ))?;
-
-                break Ok((read as usize, SocketAddrV4::from_c(&addr)));
-            }
-        }
-    }
-
-    fn sendto(&self, buf: &[u8], destination: &SocketAddrV4) -> std::io::Result<usize> {
-        unsafe {
-            let (destination, len) = destination.into_c();
-            Ok(handle_os_result(sendto(
-                self.fd.value(),
-                buf.as_ptr() as *const c_void,
-                buf.len(),
-                MSG_NOSIGNAL,
-                destination.as_ptr(),
-                len,
-            ))? as usize)
-        }
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        Ok(())
+impl RawServer {
+    pub fn new(interface: String) -> Self {
+        Self { interface }
     }
 }
 
 #[derive(Clone)]
 pub struct RawConnection {
-    socket: RawSocket,
+    socket: DgramSocket,
     destination: SocketAddrV4,
 }
 
 impl RawConnection {
-    pub fn new(socket: RawSocket, destination: SocketAddrV4) -> Self {
+    pub fn new(socket: DgramSocket, destination: SocketAddrV4) -> Self {
         Self {
             socket,
             destination,
@@ -94,7 +57,7 @@ impl Write for RawConnection {
 
 impl SetReadTimeout for RawConnection {
     fn set_read_timeout(&mut self, milliseconds: Option<u64>) -> std::io::Result<()> {
-        self.socket.fd.set_timeout(milliseconds)
+        self.socket.set_timeout(milliseconds)
     }
 }
 
@@ -110,46 +73,21 @@ impl Drop for RawConnection {
     }
 }
 
-pub struct RawListener {
-    socket: RawSocket,
-}
+pub struct RawConnectionFactory;
 
-impl RawListener {
-    pub fn new(socket: RawSocket) -> Self {
-        Self { socket }
-    }
-}
-
-impl Listener<RawConnection> for RawListener {
-    fn accept(&self) -> Result<RawConnection> {
-        loop {
-            let mut buffer = [0; 1050];
-            let (read, address) = self.socket.recvfrom(&mut buffer)?;
-
-            let (_, payload) = match Ipv4Header::from_slice(&buffer[..read]) {
-                Ok(result) => result,
-                Err(_) => continue,
-            };
-
-            if payload.len() == 0 {
-                break Ok(RawConnection::new(self.socket.clone(), address));
-            }
+impl ConnectionFactory<RawConnection> for RawConnectionFactory {
+    fn new_connection(&self, socket: DgramSocket, destination: SocketAddrV4) -> RawConnection {
+        RawConnection {
+            socket,
+            destination,
         }
     }
 }
 
-pub struct RawServer {
-    interface: String,
-}
-
-impl RawServer {
-    pub fn new(interface: String) -> Self {
-        Self { interface }
-    }
-}
+type RawListener = DgramListener<RawConnection, RawConnectionFactory>;
 
 impl Server<RawListener, RawConnection> for RawServer {
-    fn listen(&self) -> crate::transport::Result<RawListener> {
+    fn listen(&self) -> Result<RawListener> {
         unsafe {
             let fd = Fd::new(handle_os_result(socket(AF_INET, SOCK_RAW, PROTOCOL))?);
             // Bind to device
@@ -160,7 +98,10 @@ impl Server<RawListener, RawConnection> for RawServer {
                 self.interface.as_ptr() as *const c_void,
                 self.interface.len() as socklen_t,
             ))?;
-            Ok(RawListener::new(RawSocket::new(fd)))
+            Ok(DgramListener::new(
+                DgramSocket::new(fd),
+                RawConnectionFactory,
+            ))
         }
     }
 }
@@ -180,7 +121,7 @@ impl RawClient {
 }
 
 impl Client<RawConnection> for RawClient {
-    fn connect(&self) -> crate::transport::Result<RawConnection> {
+    fn connect(&self) -> Result<RawConnection> {
         unsafe {
             let fd = Fd::new(handle_os_result(socket(AF_INET, SOCK_RAW, PROTOCOL))?);
             handle_os_result(setsockopt(
@@ -190,8 +131,8 @@ impl Client<RawConnection> for RawClient {
                 self.interface.as_ptr() as *const c_void,
                 self.interface.len() as socklen_t,
             ))?;
-            let socket = RawSocket::new(fd);
-            socket.sendto(&[], &self.destination)?;
+            let socket = DgramSocket::new(fd);
+            socket.connect(&self.destination)?;
             Ok(RawConnection::new(socket, self.destination.clone()))
         }
     }

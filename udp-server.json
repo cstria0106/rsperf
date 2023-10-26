@@ -1,0 +1,6 @@
+{
+  "transport": "udp-server",
+  "udp_server": {
+    "address": "0.0.0.0:7589"
+  }
+}

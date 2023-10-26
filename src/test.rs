@@ -42,6 +42,7 @@ impl TestOptions {
 pub struct TestData {
     pub id: usize,
     pub total_transfer: usize,
+    pub total_packets: usize,
     pub plan: TestPlan,
 
     #[serde(skip_serializing)]
@@ -55,6 +56,7 @@ impl TestData {
         Self {
             id,
             total_transfer: 0,
+            total_packets: 0,
             start_time: Utc::now(),
             report_count: 0,
             plan,
@@ -89,6 +91,7 @@ impl Test {
 
     pub fn transferred(&mut self, n: usize) {
         self.data.total_transfer += n;
+        self.data.total_packets += 1;
 
         if self.should_report() {
             self.options

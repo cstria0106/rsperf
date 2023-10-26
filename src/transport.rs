@@ -1,14 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
-use thiserror::Error;
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("system error: {0}")]
-    IO(#[from] std::io::Error),
-}
-
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = std::io::Result<T>;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum TransportMode {

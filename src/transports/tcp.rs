@@ -73,7 +73,7 @@ impl TcpClient {
 impl Client<TcpConnection> for TcpClient {
     fn connect(&self) -> Result<TcpConnection> {
         unsafe {
-            // 1. Create socket
+            // 1. Create sockets
             let fd = Fd::new(handle_os_result(socket(AF_INET, SOCK_STREAM, 0))?);
 
             // 2. Connect
@@ -124,7 +124,7 @@ impl TcpServer {
 impl Server<TcpListener, TcpConnection> for TcpServer {
     fn listen(&self) -> Result<TcpListener> {
         unsafe {
-            // 1. Create socket
+            // 1. Create sockets
             let fd = Fd::new(handle_os_result(socket(AF_INET, SOCK_STREAM, 0))?);
 
             // 2. Set options

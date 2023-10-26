@@ -1,18 +1,24 @@
 use serde::{Deserialize, Serialize};
+use snafu::{prelude::*, Backtrace};
 use std::io::{BufReader, Read, Write};
-use thiserror::Error;
 
 use crate::test::TestPlan;
 use crate::transport::{SetReadTimeout, TransportMode};
 
-#[derive(Error, Debug)]
+#[derive(Snafu, Debug)]
 pub enum Error {
-    #[error("system error: {0}")]
-    IO(#[from] std::io::Error),
-    #[error("serde error: {0}")]
-    SerDe(#[from] bincode::Error),
-    #[error("read timeout")]
-    ReadTimeout,
+    #[snafu(display("system error: {}", source), context(false))]
+    IO {
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+    #[snafu(display("serde error: {}", source), context(false))]
+    SerDe {
+        source: bincode::Error,
+        backtrace: Backtrace,
+    },
+    #[snafu(display("read timeout"))]
+    ReadTimeout { backtrace: Backtrace },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -100,9 +106,9 @@ impl<R: Read + SetReadTimeout + Clone> MessageReader<R, R> {
         let value = loop {
             let message = self.read().map_err(|e| match e {
                 // Convert IO TimedOut error to ReadTimeout error
-                Error::IO(e) => match e.kind() {
-                    std::io::ErrorKind::WouldBlock => Error::ReadTimeout,
-                    _ => Error::IO(e),
+                Error::IO { source, backtrace } => match source.kind() {
+                    std::io::ErrorKind::WouldBlock => ReadTimeoutSnafu.build(),
+                    _ => Error::IO { source, backtrace },
                 },
                 _ => e,
             })?;

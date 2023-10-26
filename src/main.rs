@@ -10,11 +10,11 @@ mod transports;
 use crate::program::Config;
 use crate::test::TestOptions;
 use crate::test_format::{Format, FormattedTestPrinter, Json, Pretty};
-use colored::Colorize;
+
 use std::fs::File;
 use std::io::{stdin, Read};
 
-type Result = std::result::Result<(), Box<dyn std::error::Error>>;
+type Result = std::result::Result<(), Box<dyn snafu::Error>>;
 
 fn start_handle_signals() {
     ctrlc::set_handler(|| {
@@ -41,10 +41,10 @@ fn start<R: Read, F: Format + Clone + 'static>(reader: R, format: F) -> Result {
 }
 
 fn start_from_file<F: Format + Clone + 'static>(path: &str, format: F) -> Result {
-    println!("Press enter to start");
+    eprintln!("Press enter to start");
     let mut buf = [];
     _ = stdin().read(&mut buf);
-    println!("Started");
+    eprintln!("Started");
     start(File::open(path)?, format)
 }
 

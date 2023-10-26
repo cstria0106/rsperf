@@ -19,16 +19,18 @@ impl Format for Pretty {
                         (event.data.total_transfer - previous_data.total_transfer) * 8,
                     );
                     format!(
-                        "[{:.2}s] {}B ({}bit/s)",
+                        "[{:.2}s] {}B ({}bit/s, {} packets)",
                         event.data.elapsed().as_secs_f64(),
                         total_transfer,
-                        throughput
+                        throughput,
+                        event.data.total_packets,
                     )
                 } else {
                     format!(
-                        "[{:.2}s] {}B",
+                        "[{:.2}s] {}B ({} packets)",
                         event.data.elapsed().as_secs_f64(),
-                        total_transfer
+                        total_transfer,
+                        event.data.total_packets
                     )
                 }
             }

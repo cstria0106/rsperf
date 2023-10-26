@@ -1,13 +1,11 @@
+use crate::message;
 use crate::message::*;
 use crate::test::{Test, TestData, TestOptions, TestPlan};
 use crate::transport::*;
 use crate::transports::*;
-use crate::{message, transport};
 use serde::Deserialize;
-use std::io::stdin;
+use snafu::{prelude::*, Backtrace, ErrorCompat, GenerateImplicitData};
 use std::net::{Ipv4Addr, SocketAddrV4};
-use std::sync::{Arc, RwLock};
-use thiserror::Error;
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -15,6 +13,8 @@ pub struct Config {
     transport: String,
     tcp_server: Option<TcpServerConfig>,
     tcp_client: Option<TcpClientConfig>,
+    udp_server: Option<TcpServerConfig>,
+    udp_client: Option<TcpClientConfig>,
     raw_server: Option<RawServerConfig>,
     raw_client: Option<RawClientConfig>,
     client: Option<ClientConfig>,
@@ -47,25 +47,32 @@ struct ClientConfig {
     test_plan: TestPlan,
 }
 
-#[derive(Error, Debug)]
+#[derive(Snafu, Debug)]
 pub enum Error {
-    #[error("system error: {0}")]
-    IO(#[from] std::io::Error),
-    #[error("invalid config: {0}")]
-    InvalidConfig(String),
-    #[error("transport error: {0}")]
-    Transport(#[from] transport::Error),
-    #[error("message error: {0}")]
-    Message(#[from] message::Error),
+    #[snafu(display("system error: {}", source), context(false))]
+    IO {
+        source: std::io::Error,
+        backtrace: Backtrace,
+    },
+    #[snafu(display("invalid config: {}", message))]
+    InvalidConfig {
+        message: String,
+        backtrace: Backtrace,
+    },
+    #[snafu(display("message error: {}", source), context(false))]
+    Message {
+        #[snafu(backtrace)]
+        source: message::Error,
+    },
 }
 
 type Result<T> = std::result::Result<T, Error>;
 
 fn missing_field(field: &'static str) -> Result<()> {
-    Err(Error::InvalidConfig(format!(
-        "The field \"{}\" is required",
-        field
-    )))
+    Err(InvalidConfigSnafu {
+        message: format!("The field \"{}\" is required", field),
+    }
+    .build())
 }
 
 pub fn run(config: Config, test_options: TestOptions) -> Result<()> {
@@ -83,6 +90,24 @@ pub fn run(config: Config, test_options: TestOptions) -> Result<()> {
                 None => missing_field("tcp_client"),
                 Some(tcp_client_config) => Ok(start_client(
                     TcpClient::new(tcp_client_config.address),
+                    client_config,
+                    test_options,
+                )?),
+            },
+        },
+        "udp-server" => match config.udp_server {
+            None => missing_field("udp_server"),
+            Some(udp_server_config) => Ok(start_server(
+                UdpServer::new(udp_server_config.address),
+                test_options,
+            )?),
+        },
+        "udp-client" => match config.client {
+            None => missing_field("client_config"),
+            Some(client_config) => match config.udp_client {
+                None => missing_field("udp_client"),
+                Some(udp_client_config) => Ok(start_client(
+                    UdpClient::new(udp_client_config.address),
                     client_config,
                     test_options,
                 )?),
@@ -109,10 +134,10 @@ pub fn run(config: Config, test_options: TestOptions) -> Result<()> {
                 )?),
             },
         },
-        _ => Err(Error::InvalidConfig(format!(
-            "Invalid transport value \"{}\"",
-            config.transport
-        ))),
+        _ => Err(InvalidConfigSnafu {
+            message: format!("Invalid transport value \"{}\"", config.transport),
+        }
+        .build()),
     }
 }
 
@@ -161,6 +186,9 @@ fn start_server<S: Server<L, Conn>, L: Listener<Conn>, Conn: Connection + 'stati
             Ok(())
         })() {
             eprintln!("error: {}", e);
+            if let Some(backtrace) = e.backtrace() {
+                eprintln!("{}", backtrace);
+            }
         }
     }
 }
@@ -211,10 +239,16 @@ fn start_sender<Conn: Connection + 'static>(mut connection: Conn, mut test: Test
                         if raw_error == 105 {
                             continue;
                         } else {
-                            return Err(Error::IO(e));
+                            return Err(Error::IO {
+                                source: e,
+                                backtrace: Backtrace::generate(),
+                            });
                         }
                     } else {
-                        return Err(Error::IO(e));
+                        return Err(Error::IO {
+                            source: e,
+                            backtrace: Backtrace::generate(),
+                        });
                     }
                 }
             },

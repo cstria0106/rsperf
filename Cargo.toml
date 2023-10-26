@@ -7,9 +7,9 @@ edition = "2021"
 opt-level = 3
 
 [dependencies]
-thiserror = "1.0"
 colored = "2.0.4"
 clap = { version = "4.3", features = ["derive"] }
+snafu = { version = "0.7.5", features = ["backtraces", "backtraces-impl-std"] }
 
 lazy_static = "1.4"
 chrono = { version = "0.4.26", features = ["serde"] }
